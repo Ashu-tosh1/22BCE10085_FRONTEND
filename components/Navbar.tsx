@@ -1,5 +1,6 @@
 "use client";
-import Loading from "@/app/search/trademarks/loading";
+
+import Loading from "@/app/search/trademarks/Loading";
 import NotFound from "@/app/search/trademarks/Not-found";
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
