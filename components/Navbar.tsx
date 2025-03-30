@@ -8,9 +8,50 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import TrademarkList from "./TradeMark";
 
+interface SearchFilters {
+  status: string[];
+  exact_match: boolean;
+  owners: string[];
+  attorneys: string[];
+  law_firms: string[];
+  description: string[];
+  classes: string[];
+  states: string[];
+  counties: string[];
+}
+interface TrademarkHit {
+  _id: string;
+  _source: {
+    mark_identification: string;
+    current_owner: string;
+    registration_number: string;
+    registration_date?: number;
+    renewal_date?: number;
+    status_type: string;
+    mark_description_description?: string[];
+    class_codes?: string[];
+  };
+}
+interface TrademarkData {
+  hits?: {
+    total?: { value: number };
+    hits: TrademarkHit[];
+    length: string;
+  };
+}
+interface SearchResult {
+  body: TrademarkData;
+  total_pages?: number;
+}
+
 interface NavbarProps {
-  initialResults: object | null;
+  initialResults: SearchResult | null;
   initialError: string | null;
+  query: string;
+  page: number;
+  country: string;
+  error: boolean
+  searchResults?: { body?: [] };
 }
 
 const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
@@ -19,9 +60,9 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
 
   const searchQuery = searchParams.get("q") || "";
   const searchCountry = searchParams.get("country") || "us";
-  const currentPage = Number(searchParams.get("page") || 1);
+  const currentPage = Number(searchParams.get("page")) || 1;
 
-  const filters = {
+  const filters: SearchFilters = {
     status: searchParams.getAll("status"),
     exact_match: searchParams.get("exact_match") === "true",
     owners: searchParams.getAll("owners"),
@@ -33,18 +74,18 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
     counties: searchParams.getAll("counties"),
   };
 
-  const [searchResults, setSearchResults] = useState(initialResults);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(initialError);
-  const [query, setQuery] = useState(searchQuery);
-  const [totalPages, setTotalPages] = useState(1);
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(initialResults);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(initialError);
+  const [query, setQuery] = useState<string>(searchQuery);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   const fetchSearchResults = async () => {
     setLoading(true);
     setError(null);
 
     const requestBody = {
-      input_query: searchQuery,
+      input_query: query,
       input_query_type: "",
       sort_by: "default",
       status: filters.status.map((s) => s.toLowerCase()),
@@ -62,8 +103,6 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
       counties: filters.counties,
     };
 
-    console.log("Sending request with:", requestBody);
-
     try {
       const response = await fetch("https://vit-tm-task.api.trademarkia.app/api/v3/us", {
         method: "POST",
@@ -78,17 +117,12 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
         throw new Error("Failed to fetch search results");
       }
 
-      const data = await response.json();
+      const data: SearchResult = await response.json();
       setSearchResults(data);
-
-      // Ensure totalPages is set correctly
-      const pages = data.total_pages || 1;
-      setTotalPages(pages);
-
-      console.log("Total Pages:", pages);
+      setTotalPages(data.total_pages || 1);
     } catch (err) {
-      console.error("Error fetching search results:", err);
       setError("Failed to fetch search results. Please try again.");
+      console.log(err)
     } finally {
       setLoading(false);
     }
@@ -105,26 +139,21 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
   };
 
   const handlePageChange = (newPage: number) => {
-    if (newPage < 1 || newPage > totalPages) return; // Prevent invalid pages
+    if (newPage < 1 || newPage > totalPages) return;
 
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
-
     router.push(`/search/trademarks?${params.toString()}`);
   };
 
   useEffect(() => {
     fetchSearchResults();
-  }, [currentPage]);
-
-  useEffect(() => {
-    fetchSearchResults();
-  }, [searchParams.toString()]);
+  }, [currentPage, searchParams.toString()]);
 
   return (
     <div>
       {loading && <Loading />}
-      {!loading && !error && (!searchResults?.body || searchResults.body.length === 0) && <NotFound />}
+      {!loading && !error && (!searchResults?.body?.hits?.hits?.length) && <NotFound />}
 
       <div className="flex ml-[80px] mt-[30px] items-center justify-between w-full max-w-6xl mb-6">
         <Image src="/logo.png" alt="Logo" width={170} height={50} className="cursor-pointer" />
@@ -135,7 +164,7 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full h-14 pl-12 px-4 py-2 border border-gray-400 rounded-lg focus:outline-none"
-            onKeyPress={(e) => {
+            onKeyDown={(e) => {
               if (e.key === "Enter") handleSearch();
             }}
           />
@@ -148,32 +177,16 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
           </button>
         </div>
       </div>
-
-      {/* Error and Results Section */}
       {error ? <NotFound /> : searchResults?.body && <TrademarkList data={searchResults.body} />}
+      {!loading && !error && searchResults?.body?.hits?.hits && searchResults.body.hits.hits.length > 0 && totalPages > 1 && ( 
 
-      {/* Pagination Section */}
-      {!loading && !error && searchResults?.body?.length > 0 && totalPages > 1 && (
+
         <div className="flex justify-center mt-6 space-x-4">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg ${
-              currentPage === 1 ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
-          >
+          <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 rounded-lg">
             Previous
           </button>
-
           <span className="text-lg font-medium">Page {currentPage} of {totalPages}</span>
-
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-            className={`px-4 py-2 rounded-lg ${
-              currentPage >= totalPages ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
-          >
+          <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages} className="px-4 py-2 rounded-lg">
             Next
           </button>
         </div>

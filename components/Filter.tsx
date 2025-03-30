@@ -1,7 +1,22 @@
 "use client";
-import { useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Search, Filter, List, Share2 } from "lucide-react";
+
+interface AggregationBucket {
+  key: string;
+}
+
+interface Aggregations {
+  current_owners?: { buckets: AggregationBucket[] };
+  law_firms?: { buckets: AggregationBucket[] };
+  attorneys?: { buckets: AggregationBucket[] };
+}
+
+interface FilterSideBarprops {
+  results?: Array<string>;
+  aggregations?: Aggregations;
+}
 
 const statusColors: Record<string, string> = {
   All: "bg-gray-500",
@@ -11,25 +26,37 @@ const statusColors: Record<string, string> = {
   Others: "bg-blue-500",
 };
 
-const FilterSidebar = ({ data }: { data: any }) => {
-  const pathname = usePathname();
+const FilterSidebar = ({ data }: { data: FilterSideBarprops }) => {
   const searchParams = useSearchParams();
-  
-  const [selectedStatus, setSelectedStatus] = useState<string>("All");
-  const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
+  const router = useRouter();
+
+  const [selectedStatus, setSelectedStatus] = useState<string>(searchParams.get("status") || "All");
+  const [selectedOwners, setSelectedOwners] = useState<string[]>(searchParams.getAll("owners") || []);
   const [activeTab, setActiveTab] = useState<"Owners" | "Law Firms" | "Attorneys">("Owners");
-  const [viewMode, setViewMode] = useState<"Grid" | "List">("Grid");
-  
-  const owners = data?.aggregations.current_owners?.buckets.map((owner: any) => owner.key) || [];
-  const lawFirms = data?.aggregations.law_firms?.buckets.map((firm: any) => firm.key) || [];
-  const attorneys = data?.aggregations.attorneys?.buckets.map((attorney: any) => attorney.key) || [];
-  
+  const [viewMode] = useState<"Grid" | "List">("Grid");
+
+  const owners = data.aggregations?.current_owners?.buckets.map((owner) => owner.key) || [];
+  const lawFirms = data.aggregations?.law_firms?.buckets.map((firm) => firm.key) || [];
+  const attorneys = data.aggregations?.attorneys?.buckets.map((attorney) => attorney.key) || [];
+
+  const updateFiltersInURL = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("status", selectedStatus);
+    params.delete("owners");
+    selectedOwners.forEach((owner) => params.append("owners", owner));
+
+    router.push(`/search/trademarks?${params.toString()}`);
+  };
+
+  useEffect(() => {
+    updateFiltersInURL();
+  }, [selectedStatus, selectedOwners]);
+
   const toggleSelection = (item: string) => {
     setSelectedOwners((prev) =>
       prev.includes(item) ? prev.filter((o) => o !== item) : [...prev, item]
     );
   };
-
 
   const handleShare = async () => {
     const filters = {
@@ -40,12 +67,11 @@ const FilterSidebar = ({ data }: { data: any }) => {
       searchParams: searchParams.toString(),
     };
 
-    const results = data?.results || [];
+    const results = data.results || [];
     const shareData = {
       title: "Search Results",
-      text: `Filters: ${JSON.stringify(filters, null, 2)}
-      Results: ${results.length} items found.`,
-      url: window.location.href, 
+      text: `Filters: ${JSON.stringify(filters, null, 2)}\nResults: ${results.length} items found.`,
+      url: window.location.href,
     };
 
     if (navigator.share) {
@@ -68,12 +94,9 @@ const FilterSidebar = ({ data }: { data: any }) => {
           <Filter size={20} />
           <span className="ml-2">Filter</span>
         </button>
-        
-        
         <button className="p-2 hover:cursor-pointer bg-gray-100 rounded-md" onClick={handleShare}>
           <Share2 size={20} />
         </button>
-        
         <button className="p-2 bg-gray-100 rounded-md">
           <List size={20} />
         </button>
@@ -103,7 +126,7 @@ const FilterSidebar = ({ data }: { data: any }) => {
             <button
               key={tab}
               className={`text-sm font-medium ${activeTab === tab ? "border-b-2 border-black" : "text-gray-500"}`}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => setActiveTab(tab as "Owners" | "Law Firms" | "Attorneys")}
             >
               {tab}
             </button>
@@ -116,39 +139,20 @@ const FilterSidebar = ({ data }: { data: any }) => {
         </div>
 
         <div className="mt-2 max-h-70 overflow-auto">
-          {["Owners", "Law Firms", "Attorneys"].map(
-            (tab) =>
-              activeTab === tab &&
-              (tab === "Owners" ? owners : tab === "Law Firms" ? lawFirms : attorneys).map((item) => (
-                <label key={item} className="flex items-center space-x-2 py-1">
-                  <input
-                    type="checkbox"
-                    checked={selectedOwners.includes(item)}
-                    onChange={() => toggleSelection(item)}
-                    className="form-checkbox text-blue-500"
-                  />
-                  <span className={`text-sm uppercase ${selectedOwners.includes(item) ? "text-blue-500" : "text-black"}`}>
-                    {item.charAt(0).toUpperCase() + item.slice(1).toLowerCase()}
-                  </span>
-                </label>
-              ))
-          )}
+          {(activeTab === "Owners" ? owners : activeTab === "Law Firms" ? lawFirms : attorneys).map((item) => (
+            <label key={item} className="flex items-center space-x-2 py-1">
+              <input
+                type="checkbox"
+                checked={selectedOwners.includes(item)}
+                onChange={() => toggleSelection(item)}
+                className="form-checkbox text-blue-500"
+              />
+              <span className={`text-sm uppercase ${selectedOwners.includes(item) ? "text-blue-500" : "text-black"}`}>
+                {item.charAt(0).toUpperCase() + item.slice(1).toLowerCase()}
+              </span>
+            </label>
+          ))}
         </div>
-      </div>
-
-      <div className="p-3 bg-white rounded-md shadow-sm flex justify-between">
-        <button
-          className={`px-3 py-1 rounded-md ${viewMode === "Grid" ? "bg-black text-white" : "bg-gray-200 text-black"}`}
-          onClick={() => setViewMode("Grid")}
-        >
-          Grid View
-        </button>
-        <button
-          className={`px-3 py-1 rounded-md ${viewMode === "List" ? "bg-black text-white" : "bg-gray-200 text-black"}`}
-          onClick={() => setViewMode("List")}
-        >
-          List View
-        </button>
       </div>
     </div>
   );
