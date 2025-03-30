@@ -4,9 +4,30 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 
-// Define interfaces matching Navbar's expectations
+// Define correct types
+interface TrademarkHit {
+  _id: string;
+  _source: {
+    mark_identification: string;
+    current_owner: string;
+    registration_number: string;
+    registration_date?: number;
+    renewal_date?: number;
+    status_type: string;
+    mark_description_description?: string[];
+    class_codes?: string[];
+  };
+}
+
+interface TrademarkData {
+  hits?: {
+    total?: { value: number };
+    hits: TrademarkHit[];
+  };
+}
+
 interface SearchResult {
-  body: string[];
+  body: TrademarkData; // ✅ FIXED: Now matches API response
   total_pages?: number;
 }
 
@@ -19,9 +40,9 @@ const SearchPage = () => {
   const [searchCountry, setSearchCountry] = useState<string>(() => searchParams.get("country") || "us");
   const [currentPage, setCurrentPage] = useState<number>(() => Number(searchParams.get("page")) || 1);
 
-  const [searchResults, setSearchResults] = useState<SearchResult | null>(null); // ✅ Fixed type
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(); 
   const [, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null); 
+  const [error, setError] = useState<string | null>(null);
 
   // Sync state when search parameters change
   useEffect(() => {
@@ -40,7 +61,7 @@ const SearchPage = () => {
   const fetchSearchResults = async () => {
     setLoading(true);
     setError(null);
-
+  
     const requestBody = {
       input_query: searchQuery,
       sort_by: "default",
@@ -55,7 +76,7 @@ const SearchPage = () => {
       states: [],
       counties: [],
     };
-
+  
     try {
       const response = await fetch(`https://vit-tm-task.api.trademarkia.app/api/v3/${searchCountry}`, {
         method: "POST",
@@ -65,21 +86,30 @@ const SearchPage = () => {
         },
         body: JSON.stringify(requestBody),
       });
-
+  
       if (!response.ok) {
         throw new Error("Failed to fetch search results");
       }
-
-      const data: SearchResult = await response.json();
-      setSearchResults(data);
+  
+      const data: TrademarkData = await response.json(); 
+  
+      // 🔹 Ensure `hits.length` is explicitly defined
+      const updatedHits = data.hits ? { ...data.hits, length: data.hits.hits.length || 0 } : { hits: [], length: 0 };
+  
+      setSearchResults({
+        body: { ...data, hits: updatedHits },  // ✅ Force `length` property
+        total_pages: data.hits?.total?.value || 0,
+      });
+  
     } catch (err) {
       console.error("Error fetching search results:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
-      setSearchResults(null); // ✅ Reset results on error
+      setSearchResults(null);
     } finally {
       setLoading(false);
     }
   };
+  
 
   // Update URL on state change
   useEffect(() => {
@@ -90,13 +120,13 @@ const SearchPage = () => {
   }, [searchQuery, searchCountry, currentPage, router]);
 
   return (
-    <div key={searchParams.toString()}> 
-      <Navbar 
-        query={searchQuery} 
-        page={currentPage} 
-        country={searchCountry} 
-        initialResults={searchResults} 
-        initialError={error} 
+    <div key={searchParams.toString()}>
+      <Navbar
+        query={searchQuery}
+        page={currentPage}
+        country={searchCountry}
+        initialResults={searchResults} // 
+        initialError={error}
       />
     </div>
   );

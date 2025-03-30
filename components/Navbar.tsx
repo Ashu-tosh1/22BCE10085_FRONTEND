@@ -19,6 +19,7 @@ interface SearchFilters {
   states: string[];
   counties: string[];
 }
+
 interface TrademarkHit {
   _id: string;
   _source: {
@@ -32,13 +33,15 @@ interface TrademarkHit {
     class_codes?: string[];
   };
 }
+
 interface TrademarkData {
   hits?: {
     total?: { value: number };
     hits: TrademarkHit[];
-    length: string;
+    length: number; // Fixed: should be a number, not a string
   };
 }
+
 interface SearchResult {
   body: TrademarkData;
   total_pages?: number;
@@ -50,8 +53,8 @@ interface NavbarProps {
   query: string;
   page: number;
   country: string;
-  error: boolean
-  searchResults?: { body?: [] };
+  error: boolean;
+  searchResults?: SearchResult | null; 
 }
 
 const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
