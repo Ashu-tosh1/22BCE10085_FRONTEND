@@ -1,26 +1,33 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import FilterSidebar from "@/components/Filter";
 import Navbar from "@/components/Navbar";
 
 const SearchPage = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-  const [searchCountry, setSearchCountry] = useState(searchParams.get("country") || "us");
+  // Set initial state safely
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") || "nike");
+  const [searchCountry, setSearchCountry] = useState(() => searchParams.get("country") || "us");
+  const [currentPage, setCurrentPage] = useState(() => Number(searchParams.get("page")) || 1);
+
   const [searchResults, setSearchResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
 
+  // Ensure state updates when searchParams change
   useEffect(() => {
-    setSearchQuery(searchParams.get("q") || "");
-    setSearchCountry(searchParams.get("country") || "us");
-    setCurrentPage(Number(searchParams.get("page")) || 1);
-  }, [searchParams]);
+    const q = searchParams.get("q") || "nike"; // Ensure default
+    const country = searchParams.get("country") || "us";
+    const page = Number(searchParams.get("page")) || 1;
 
+    setSearchQuery(q);
+    setSearchCountry(country);
+    setCurrentPage(page);
+  }, [searchParams.toString()]); // 🔹 Ensure reactivity when URL changes
+
+  // Fetch results when relevant state changes
   useEffect(() => {
     if (searchQuery) {
       fetchSearchResults();
@@ -64,24 +71,24 @@ const SearchPage = () => {
       setSearchResults(data);
     } catch (err) {
       console.error("Error fetching search results:", err);
-      setError("Failed to fetch search results. Please try again.");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateSearchParams = () => {
-    router.push(
-      `/search/trademarks?q=${encodeURIComponent(searchQuery)}&country=${searchCountry}&page=${currentPage}`
-    );
-  };
-
+  // Update the URL when state changes
   useEffect(() => {
-    updateSearchParams();
+    const newUrl = `/search/trademarks?q=${encodeURIComponent(searchQuery)}&country=${searchCountry}&page=${currentPage}`;
+    
+    // Only push if the URL is actually different
+    if (window.location.href !== newUrl) {
+      router.push(newUrl);
+    }
   }, [searchQuery, searchCountry, currentPage]);
 
   return (
-    <div>
+    <div key={searchParams.toString()}> {/* 🔹 Force re-mounting when URL changes */}
       <Navbar 
         query={searchQuery} 
         page={currentPage} 
@@ -89,10 +96,7 @@ const SearchPage = () => {
         initialResults={searchResults} 
         initialError={error} 
       />
-
-      {/* {/* <FilterSidebar data={searchResults} />
-      {loading ? <p>Loading...</p> : <p>Results here...</p>} */}
-     </div> 
+    </div> 
   );
 };
 

@@ -20,7 +20,6 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
   const searchCountry = searchParams.get("country") || "us";
   const currentPage = Number(searchParams.get("page") || 1);
 
-  // Extract all filter values from URL
   const filters = {
     status: searchParams.getAll("status"),
     exact_match: searchParams.get("exact_match") === "true",
@@ -36,7 +35,8 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
   const [searchResults, setSearchResults] = useState(initialResults);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError);
-  const [query, setQuery] = useState(searchQuery); // Controlled input state
+  const [query, setQuery] = useState(searchQuery);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchSearchResults = async () => {
     setLoading(true);
@@ -46,7 +46,7 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
       input_query: searchQuery,
       input_query_type: "",
       sort_by: "default",
-      status: filters.status.map(s => s.toLowerCase()), // Avoid sending empty array
+      status: filters.status.map((s) => s.toLowerCase()),
       exact_match: filters.exact_match,
       date_query: false,
       owners: filters.owners,
@@ -60,7 +60,6 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
       states: filters.states,
       counties: filters.counties,
     };
-    
 
     console.log("Sending request with:", requestBody);
 
@@ -80,6 +79,12 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
 
       const data = await response.json();
       setSearchResults(data);
+
+      // Ensure totalPages is set correctly
+      const pages = data.total_pages || 1;
+      setTotalPages(pages);
+
+      console.log("Total Pages:", pages);
     } catch (err) {
       console.error("Error fetching search results:", err);
       setError("Failed to fetch search results. Please try again.");
@@ -88,28 +93,32 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
     }
   };
 
-  // Update the URL and fetch new results when search button is clicked
   const handleSearch = () => {
-    const params = new URLSearchParams(); // Clear all existing queries
-    
+    const params = new URLSearchParams();
     if (query) params.set("q", query);
     params.set("country", searchCountry);
-    params.set("page", "1"); // Reset to first page
+    params.set("page", "1");
 
-    // 🚀 Push updated search query with only q and country
     router.push(`/search/trademarks?${params.toString()}`);
-
-    // Fetch updated results
     fetchSearchResults();
   };
 
-  
-  
-  
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return; // Prevent invalid pages
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", newPage.toString());
+
+    router.push(`/search/trademarks?${params.toString()}`);
+  };
 
   useEffect(() => {
     fetchSearchResults();
-  }, [searchParams.toString()]); // Re-fetch when any search param changes
+  }, [currentPage]);
+
+  useEffect(() => {
+    fetchSearchResults();
+  }, [searchParams.toString()]);
 
   return (
     <div>
@@ -140,14 +149,34 @@ const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {
       </div>
 
       {/* Error and Results Section */}
-      {error ? (
-  <NotFound />
-) : 
-  (
-          searchResults?.body && <TrademarkList data={searchResults.body} />
-  ) 
-}
+      {error ? <NotFound /> : searchResults?.body && <TrademarkList data={searchResults.body} />}
 
+      {/* Pagination Section */}
+      {!loading && !error && searchResults?.body?.length > 0 && totalPages > 1 && (
+        <div className="flex justify-center mt-6 space-x-4">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className={`px-4 py-2 rounded-lg ${
+              currentPage === 1 ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-500 text-white hover:bg-blue-600"
+            }`}
+          >
+            Previous
+          </button>
+
+          <span className="text-lg font-medium">Page {currentPage} of {totalPages}</span>
+
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className={`px-4 py-2 rounded-lg ${
+              currentPage >= totalPages ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-500 text-white hover:bg-blue-600"
+            }`}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };
