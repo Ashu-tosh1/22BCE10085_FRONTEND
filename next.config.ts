@@ -3,7 +3,7 @@ module.exports = {
     return [
       {
         source: "/",
-        destination: "/search/trademarks/q=nike",
+        destination: "/search/trademarks?q=nike",
         permanent: true,
       },
     ];
