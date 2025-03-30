@@ -18,6 +18,22 @@ This project is a search and filtering page built using Next.js, integrating var
 - **Share Button Functionality**: Generates a sharable link containing all applied filters and search results.
 
 
+## Installation
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/your-repo.git
+   ```
+2. Navigate to the project directory:
+   ```sh
+   cd your-project
+   ```
+3. Install dependencies:
+   ```sh
+   npm install
+   ```
+4. Start the development server:
+   ```sh
+   npm run dev
    ```
 
 ## Usage

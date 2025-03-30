@@ -38,7 +38,7 @@ interface TrademarkData {
   hits?: {
     total?: { value: number };
     hits: TrademarkHit[];
-    length: number; // Fixed: should be a number, not a string
+    length: number; 
   };
 }
 
@@ -48,13 +48,14 @@ interface SearchResult {
 }
 
 interface NavbarProps {
-  initialResults: SearchResult | null;
+  initialResults: SearchResult | null ;
   initialError: string | null;
   query: string;
   page: number;
   country: string;
-  error: boolean;
+  error: string;
   searchResults?: SearchResult | null; 
+  
 }
 
 const Navbar: React.FC<NavbarProps> = ({ initialResults, initialError }) => {

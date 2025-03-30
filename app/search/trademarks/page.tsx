@@ -22,12 +22,13 @@ interface TrademarkHit {
 interface TrademarkData {
   hits?: {
     total?: { value: number };
-    hits: TrademarkHit[];
+    hits: TrademarkHit[]; // required array of TrademarkHit
+    length: number; // required number
   };
 }
 
 interface SearchResult {
-  body: TrademarkData; // ✅ FIXED: Now matches API response
+  body: TrademarkData; // matches API response with hits.length defined
   total_pages?: number;
 }
 
@@ -40,7 +41,7 @@ const SearchPage = () => {
   const [searchCountry, setSearchCountry] = useState<string>(() => searchParams.get("country") || "us");
   const [currentPage, setCurrentPage] = useState<number>(() => Number(searchParams.get("page")) || 1);
 
-  const [searchResults, setSearchResults] = useState<SearchResult | null>(); 
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
   const [, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,7 +62,7 @@ const SearchPage = () => {
   const fetchSearchResults = async () => {
     setLoading(true);
     setError(null);
-  
+
     const requestBody = {
       input_query: searchQuery,
       sort_by: "default",
@@ -76,7 +77,7 @@ const SearchPage = () => {
       states: [],
       counties: [],
     };
-  
+
     try {
       const response = await fetch(`https://vit-tm-task.api.trademarkia.app/api/v3/${searchCountry}`, {
         method: "POST",
@@ -86,21 +87,26 @@ const SearchPage = () => {
         },
         body: JSON.stringify(requestBody),
       });
-  
+
       if (!response.ok) {
         throw new Error("Failed to fetch search results");
       }
-  
-      const data: TrademarkData = await response.json(); 
-  
-      // 🔹 Ensure `hits.length` is explicitly defined
-      const updatedHits = data.hits ? { ...data.hits, length: data.hits.hits.length || 0 } : { hits: [], length: 0 };
-  
+
+      const data: TrademarkData = await response.json();
+
+      // Ensure that hits.hits is always an array and length is defined.
+      const updatedHits = data.hits
+        ? {
+            ...data.hits,
+            hits: data.hits.hits ? data.hits.hits : [], // default to [] if undefined
+            length: data.hits.hits ? data.hits.hits.length : 0,
+          }
+        : { hits: [], length: 0 };
+
       setSearchResults({
-        body: { ...data, hits: updatedHits },  // ✅ Force `length` property
+        body: { ...data, hits: updatedHits },
         total_pages: data.hits?.total?.value || 0,
       });
-  
     } catch (err) {
       console.error("Error fetching search results:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -109,7 +115,6 @@ const SearchPage = () => {
       setLoading(false);
     }
   };
-  
 
   // Update URL on state change
   useEffect(() => {
@@ -125,8 +130,9 @@ const SearchPage = () => {
         query={searchQuery}
         page={currentPage}
         country={searchCountry}
-        initialResults={searchResults} // 
-        initialError={error}
+        initialResults={searchResults}
+              initialError={error}
+              error={error || ""}
       />
     </div>
   );
