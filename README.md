@@ -17,6 +17,8 @@ This project is a search and filtering page built using Next.js, integrating var
 - **Routing with Query Parameters**: Updates URL parameters dynamically for search and filters.
 - **Share Button Functionality**: Generates a sharable link containing all applied filters and search results.
 
+## Vercel
+link-https://22-bce-10085-frontend-3hcv.vercel.app/
 
 ## Installation
 1. Clone the repository:
@@ -42,6 +44,7 @@ This project is a search and filtering page built using Next.js, integrating var
 - Apply filters to refine search results.
 - Share search results using the share button.
 - View paginated results by navigating pages.
+
 
 ## API Integration
 The project fetches data from an external API, dynamically updating the UI based on search parameters.
